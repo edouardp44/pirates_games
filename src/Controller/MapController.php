@@ -2,6 +2,9 @@
 
 namespace App\Controller;
 
+use App\Repository\TileRepository;
+use App\Service\MapManager;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -13,7 +16,7 @@ class MapController extends AbstractController
     /**
      * @Route("/map", name="map")
      */
-    public function displayMap(BoatRepository $boatRepository) :Response
+    public function displayMap(BoatRepository $boatRepository): Response
     {
         $em = $this->getDoctrine()->getManager();
         $tiles = $em->getRepository(Tile::class)->findAll();
@@ -25,8 +28,34 @@ class MapController extends AbstractController
         $boat = $boatRepository->findOneBy([]);
 
         return $this->render('map/index.html.twig', [
-            'map'  => $map ?? [],
+            'map' => $map ?? [],
             'boat' => $boat,
         ]);
+    }
+
+    /**
+     * @Route("/start", name="start")
+     */
+    public function start(
+        BoatRepository $boatRepository,
+        TileRepository $tileRepository,
+        EntityManagerInterface $entityManager,
+        MapManager $mapManager): Response
+    {
+        $boat = $boatRepository->findOneBy([]);
+        $boat
+            ->setCoordX(0)
+            ->setCoordY(0);
+        $tileRepository
+            ->findOneBy(['hasTreasure' => true ])
+            ->setHasTreasure(false);
+        $mapManager
+            ->getRandomIsland()
+            ->setHasTreasure(true);
+        $entityManager->flush();
+
+        return $this->redirectToRoute('map');
+
+
     }
 }

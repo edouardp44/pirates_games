@@ -5,10 +5,12 @@ namespace App\Controller;
 use App\Entity\Boat;
 use App\Form\BoatType;
 use App\Repository\BoatRepository;
+use App\Service\MapManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
 
 /**
@@ -21,7 +23,7 @@ class BoatController extends AbstractController
      * Move the boat to coord x,y
      * @Route("/move/{x}/{y}", name="moveBoat", requirements={"x"="\d+", "y"="\d+"}))
      */
-    public function moveBoat(int $x, int $y, BoatRepository $boatRepository, EntityManagerInterface $em) :Response
+    public function moveBoat(int $x, int $y, BoatRepository $boatRepository, EntityManagerInterface $em): Response
     {
         $boat = $boatRepository->findOneBy([]);
         $boat->setCoordX($x);
@@ -104,5 +106,45 @@ class BoatController extends AbstractController
         }
 
         return $this->redirectToRoute('boat_index');
+    }
+
+    /**
+     * @Route("/direction/{direction}", name="boat_direction")
+     */
+    public function moveDirection(
+        string $direction,
+        BoatRepository $boatRepository,
+        EntityManagerInterface $entityManager,
+        MapManager $mapManager
+    ): Response {
+
+        $boat = $boatRepository->findOneBy([]);
+        switch ($direction) {
+            case "E":
+                $boat->setCoordX($boat->getCoordX() - 1);
+                break;
+            case "W":
+                $boat->setCoordX($boat->getCoordX() + 1);
+                break;
+            case "N":
+                $boat->setCoordY($boat->getCoordY() - 1);
+                break;
+            case "S":
+                $boat->setCoordY($boat->getCoordY() + 1);
+                break;
+            default:
+                throw new NotFoundHttpException();
+        }
+        if ($mapManager->tileExists($boat->getCoordX(), $boat->getCoordY())) {
+            if ($mapManager->checkTreasure($boat)) {
+                $this->addFlash('success', 'You win !');
+            }
+            $entityManager->flush();
+        } else {
+            $this->addFlash('danger', 'you are out of bounds');
+        }
+
+        return $this->redirectToRoute("map");
+
     }
 }
